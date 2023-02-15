@@ -1,4 +1,4 @@
-<h1>Hi, I'm Eric, an <a href="www.linkedin.com/in/eric-jacksonit">IT Professional</a>☺</h1>
+<h1>Hi, I'm Eric, an <a href="https://www.linkedin.com/in/eric-jackson-557003233/">IT Professional</a>☺</h1>
 
 <h2>👨‍💻 Information Technology Projects:</h2>
 
