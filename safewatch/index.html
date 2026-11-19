@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SafeWatch</title>
+  <meta name="description" content="Child-safety awareness: public sex-offender registry data near the places your family goes, plus fast reporting to the right authorities.">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="emergency" href="tel:911">Child in immediate danger? <strong>Call 911</strong></a>
+
+  <header class="top">
+    <h1>SafeWatch</h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="map" aria-selected="true">Map</button>
+      <button role="tab" data-tab="zones">Watch zones</button>
+      <button role="tab" data-tab="report">Report</button>
+      <button role="tab" data-tab="learn">Warning signs</button>
+      <button role="tab" data-tab="data">Data</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- MAP -->
+    <section id="tab-map" class="panel active">
+      <div class="notice" id="data-notice"></div>
+      <form id="search" class="row">
+        <input id="search-input" type="text" placeholder="Address, school or ZIP code" autocomplete="off">
+        <button type="submit">Search</button>
+        <button type="button" id="locate" class="secondary">Use my location</button>
+      </form>
+      <div class="row small">
+        <label>Radius
+          <select id="radius">
+            <option value="0.5">0.5 mi</option>
+            <option value="1" selected>1 mi</option>
+            <option value="2">2 mi</option>
+            <option value="5">5 mi</option>
+          </select>
+        </label>
+        <span id="result-count" class="muted"></span>
+      </div>
+      <div id="map" aria-label="Map of registry records"></div>
+      <ul id="results" class="cards"></ul>
+    </section>
+
+    <!-- ZONES -->
+    <section id="tab-zones" class="panel">
+      <h2>Watch zones</h2>
+      <p class="muted">Save the places your kids spend time. SafeWatch checks registry data against each zone
+        and flags <strong>new records</strong> since your last check. Everything stays in this browser.</p>
+      <form id="zone-form" class="stack">
+        <input id="zone-name" required placeholder="Name (e.g. Home, Lincoln Elementary)">
+        <input id="zone-addr" required placeholder="Address">
+        <label>Radius
+          <select id="zone-radius">
+            <option value="0.25">0.25 mi</option>
+            <option value="0.5" selected>0.5 mi</option>
+            <option value="1">1 mi</option>
+            <option value="2">2 mi</option>
+          </select>
+        </label>
+        <button type="submit">Add zone</button>
+      </form>
+      <div class="row">
+        <button id="check-zones">Check all zones now</button>
+        <button id="enable-notify" class="secondary">Enable browser alerts</button>
+      </div>
+      <ul id="zone-list" class="cards"></ul>
+    </section>
+
+    <!-- REPORT -->
+    <section id="tab-report" class="panel">
+      <h2>Report a concern</h2>
+      <div class="cards">
+        <a class="card action danger" href="tel:911">
+          <h3>Call 911</h3><p>Child is in immediate danger, or a crime is happening now.</p></a>
+        <a class="card action" href="https://report.cybertip.org/" target="_blank" rel="noopener">
+          <h3>NCMEC CyberTipline</h3><p>Online enticement, sextortion, child sexual abuse material, suspicious messages to a child. Also <a href="tel:18008435678">1-800-843-5678</a>.</p></a>
+        <a class="card action" href="https://tips.fbi.gov/" target="_blank" rel="noopener">
+          <h3>FBI tips</h3><p>Exploitation that crosses state lines or happens online.</p></a>
+        <a class="card action" href="https://www.nsopw.gov/" target="_blank" rel="noopener">
+          <h3>Registrant not complying?</h3><p>Living at an address that doesn't match the registry, or near a restricted place: call your local police non-emergency line or sheriff's sex-offender registration unit.</p></a>
+        <a class="card action" href="tel:18004224453">
+          <h3>Childhelp hotline</h3><p>1-800-422-4453, 24/7. For abuse concerns and for kids who need someone to talk to.</p></a>
+      </div>
+
+      <h3>Before you report: preserve the evidence</h3>
+      <ol class="guide">
+        <li><strong>Don't confront or contact the person.</strong> It can put you and the child at risk and can tip them off to delete evidence.</li>
+        <li><strong>Don't delete anything.</strong> Keep the messages, accounts and devices exactly as they are.</li>
+        <li><strong>Screenshot</strong> usernames, profile URLs, messages, and the date and time.</li>
+        <li><strong>Don't forward or download sexual images of a minor</strong>, even to report them. Describe where you saw them; investigators will collect them lawfully.</li>
+        <li><strong>Write down what you know:</strong> who, what, where, when, and how you found out.</li>
+      </ol>
+
+      <h3>Incident notes <span class="muted small">(stays on this device)</span></h3>
+      <form id="note-form" class="stack">
+        <input id="note-when" type="datetime-local">
+        <textarea id="note-text" rows="4" placeholder="What happened, usernames, platforms, places…"></textarea>
+        <div class="row">
+          <button type="submit">Save note</button>
+          <button type="button" id="export-notes" class="secondary">Export notes for police</button>
+        </div>
+      </form>
+      <ul id="note-list" class="cards"></ul>
+    </section>
+
+    <!-- LEARN -->
+    <section id="tab-learn" class="panel">
+      <h2>Grooming warning signs</h2>
+      <p class="muted">Most children are harmed by someone they know, and much grooming now starts online.
+        A registry search alone doesn't keep a child safe. These behaviors are what to watch for.</p>
+      <div class="cards">
+        <div class="card"><h3>An adult who…</h3><ul>
+          <li>Seeks out time alone with a specific child</li>
+          <li>Gives gifts, money or privileges with no clear reason</li>
+          <li>Pushes physical boundaries (tickling, wrestling, lap-sitting) after a child says no</li>
+          <li>Tells a child to keep secrets from parents</li>
+          <li>Undermines parents ("they don't understand you like I do")</li>
+        </ul></div>
+        <div class="card"><h3>Online, watch for…</h3><ul>
+          <li>A new "friend" who moves the chat to private or disappearing-message apps</li>
+          <li>Requests for photos, or offers of game currency or gift cards</li>
+          <li>Flattery, then guilt, then threats (sextortion)</li>
+          <li>Requests to meet in person</li>
+        </ul></div>
+        <div class="card"><h3>In your child…</h3><ul>
+          <li>Secrecy about devices or a new contact</li>
+          <li>New gifts, money or accounts they can't explain</li>
+          <li>Withdrawal, anxiety, or sexual knowledge beyond their age</li>
+          <li>Sudden fear of a particular person or place</li>
+        </ul></div>
+        <div class="card"><h3>What to tell kids</h3><ul>
+          <li>"You will never be in trouble for telling me."</li>
+          <li>No adult should ask you to keep a secret from me.</li>
+          <li>Someone threatening to share your pictures is committing a crime. It isn't your fault.</li>
+          <li>Teens can use <a href="https://takeitdown.ncmec.org/" target="_blank" rel="noopener">Take It Down</a> to get images removed.</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- DATA -->
+    <section id="tab-data" class="panel">
+      <h2>Data source</h2>
+      <p>SafeWatch doesn't collect or invent data on anyone. It displays <strong>public sex-offender
+        registry records</strong> that you load from an official source.</p>
+      <div class="row">
+        <a class="btn" href="https://www.nsopw.gov/" target="_blank" rel="noopener">Search NSOPW (official, all states)</a>
+      </div>
+      <h3>Load registry data</h3>
+      <p class="muted small">CSV with header: <code>id,name,address,lat,lng,offense,tier,registry_url,last_verified</code>.
+        Use an export your state registry provides, or a licensed data provider. Check your state's
+        terms of use first. Many states restrict how registry data may be republished.</p>
+      <input id="csv-file" type="file" accept=".csv,text/csv">
+      <div class="row">
+        <button id="use-demo" class="secondary">Switch to demo data</button>
+        <button id="clear-data" class="secondary">Clear loaded data</button>
+      </div>
+
+      <h3>Rules of use</h3>
+      <ul class="guide">
+        <li>Registry information is provided for <strong>public safety awareness only</strong>.</li>
+        <li>Using it to threaten, harass, intimidate or harm anyone is a crime in every state, and it makes communities less safe.</li>
+        <li>Records can be outdated or wrong. Always confirm on the official registry before acting.</li>
+        <li>If you see a violation, report it to law enforcement. Never confront the person yourself.</li>
+      </ul>
+    </section>
+  </main>
+
+  <div id="consent" class="modal" hidden>
+    <div class="modal-box">
+      <h2>Before you continue</h2>
+      <p>SafeWatch shows public registry information for <strong>child-safety awareness</strong>.</p>
+      <p>By continuing, you agree not to use it to harass, threaten, or harm anyone. That is illegal and
+        puts families at risk. Report concerns to law enforcement.</p>
+      <button id="consent-ok">I understand</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
