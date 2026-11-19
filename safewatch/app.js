@@ -100,7 +100,7 @@
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
     document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-selected', x === b));
     document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + b.dataset.tab));
-    if (b.dataset.tab === 'map') setTimeout(() => map.invalidateSize(), 0);
+    if (b.dataset.tab === 'map' && map) setTimeout(() => map.invalidateSize(), 0);
   }));
 
   /* ---------- Consent ---------- */
@@ -109,10 +109,26 @@
 
   /* ---------- Map ---------- */
   let center = store.get('center', { lat: 39.8283, lng: -98.5795 });
-  const map = L.map('map').setView([center.lat, center.lng], store.get('center', null) ? 14 : 4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-  const layer = L.layerGroup().addTo(map);
+  const hasCenter = !!store.get('center', null);
+  let hasSearched = hasCenter;
+  // The map is optional: if Leaflet can't load (offline, CDN blocked), the
+  // list view, zones, reporting and notes keep working.
+  let map = null, layer = null;
+  function mapMessage(msg) { const el = $('#map-msg'); el.textContent = msg; el.hidden = !msg; }
+  if (window.L) {
+    map = L.map('map').setView([center.lat, center.lng], hasCenter ? 14 : 4);
+    let tileErrors = 0;
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+    }).on('tileerror', () => {
+      if (++tileErrors === 3) mapMessage('Map background could not load. Check your connection. Records are still listed below.');
+    }).on('tileload', () => { tileErrors = 0; mapMessage(''); }).addTo(map);
+    layer = L.layerGroup().addTo(map);
+    map.on('click', (e) => setCenter(e.latlng, map.getZoom()));
+  } else {
+    $('#map').classList.add('map-fallback');
+    $('#map').textContent = 'The map could not load. Records near your search are listed below.';
+  }
 
   function updateNotice() {
     $('#data-notice').innerHTML = provider === demoProvider
@@ -131,24 +147,31 @@
 
   function render() {
     const radius = +$('#radius').value;
-    const recs = provider.near(center, radius).sort((a, b) => distanceMi(center, a) - distanceMi(center, b));
-    layer.clearLayers();
-    L.circle([center.lat, center.lng], { radius: radius * 1609.34, color: '#1f5fbf', weight: 1, fillOpacity: 0.06 }).addTo(layer);
-    L.circleMarker([center.lat, center.lng], { radius: 6, color: '#1f5fbf', fillOpacity: 1 }).addTo(layer).bindPopup('Search location');
-    for (const z of store.get('zones', [])) {
-      L.circle([z.lat, z.lng], { radius: z.radius * 1609.34, color: '#2a9d8f', weight: 1, dashArray: '4', fillOpacity: 0.04 })
-        .addTo(layer).bindTooltip(z.name);
+    const recs = (hasSearched ? provider.near(center, radius) : []).sort((a, b) => distanceMi(center, a) - distanceMi(center, b));
+    if (layer) {
+      layer.clearLayers();
+      if (hasSearched) {
+        L.circle([center.lat, center.lng], { radius: radius * 1609.34, color: '#1f5fbf', weight: 1, fillOpacity: 0.06 }).addTo(layer);
+        L.circleMarker([center.lat, center.lng], { radius: 6, color: '#1f5fbf', fillOpacity: 1 }).addTo(layer).bindPopup('Search location');
+      }
+      for (const z of store.get('zones', [])) {
+        L.circle([z.lat, z.lng], { radius: z.radius * 1609.34, color: '#2a9d8f', weight: 1, dashArray: '4', fillOpacity: 0.04 })
+          .addTo(layer).bindTooltip(z.name);
+      }
+      recs.forEach((r) => L.circleMarker([r.lat, r.lng], { radius: 7, color: '#c0262d', fillOpacity: 0.8 })
+        .addTo(layer).bindPopup(recordCard(r, center)));
     }
-    recs.forEach((r) => L.circleMarker([r.lat, r.lng], { radius: 7, color: '#c0262d', fillOpacity: 0.8 })
-      .addTo(layer).bindPopup(recordCard(r, center)));
-    $('#result-count').textContent = `${recs.length} record${recs.length === 1 ? '' : 's'} within ${radius} mi`;
+    $('#result-count').textContent = hasSearched
+      ? `${recs.length} record${recs.length === 1 ? '' : 's'} within ${radius} mi`
+      : 'Search an address or use your location to begin.';
     $('#results').innerHTML = recs.map((r) => `<li class="card">${recordCard(r, center)}</li>`).join('');
     updateNotice();
   }
 
   function setCenter(c, zoom = 14) {
-    center = { lat: c.lat, lng: c.lng }; store.set('center', center);
-    map.setView([center.lat, center.lng], zoom); render();
+    center = { lat: c.lat, lng: c.lng }; store.set('center', center); hasSearched = true;
+    if (map) map.setView([center.lat, center.lng], zoom);
+    render();
   }
 
   $('#search').addEventListener('submit', async (e) => {
@@ -162,7 +185,6 @@
       () => alert('Could not get your location.'));
   });
   $('#radius').addEventListener('change', render);
-  map.on('click', (e) => setCenter(e.latlng, map.getZoom()));
 
   /* ---------- Watch zones ---------- */
   function renderZones(results = {}) {
